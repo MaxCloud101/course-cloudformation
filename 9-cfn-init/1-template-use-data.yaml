@@ -1,0 +1,52 @@
+Parameters:
+  SSHLocation:
+    Description: The IP address range that can be used to SSH in EC2 instances
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    Default: 0.0.0.0/0
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  KeyPairName:
+    Description: Name of EC2 key pair.
+    Type: AWS::EC2::KeyPair::KeyName
+
+Resources:
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow port 80 and 22"
+      SecurityGroupIngress:
+      - CidrIp: !Ref SSHLocation
+        FromPort: '22'
+        IpProtocol: tcp
+        ToPort: '22'
+      - CidrIp: 0.0.0.0/0
+        FromPort: '80'
+        IpProtocol: tcp
+        ToPort: '80'
+  MyWebServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-a4c7edb2
+      InstanceType: t2.micro
+      KeyName: !Ref KeyPairName
+      SecurityGroups:
+        - !Ref MySecurityGroup
+      UserData:
+        Fn::Base64: |
+           #!/bin/bash
+           yum update -y
+           amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
+           yum install -y httpd mariadb-server
+           systemctl start httpd
+           systemctl enable httpd
+           systemctl is-enabled httpd
+           chkconfig httpd on
+           groupadd www
+           usermod -a -G www ec2-user
+           chown -R root:www /var/www
+           chmod 2775 /var/www
+           find /var/www -type d -exec chmod 2775 {} +
+           find /var/www -type f -exec chmod 0664 {} +
+           echo "<?php phpinfo(); ?>" > /var/www/html/phpinfo.php

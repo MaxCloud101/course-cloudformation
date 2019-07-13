@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: "ami-a4c7edb2"
+      MyAz: "us-east-1a"
+    us-west-1:
+      AMI: "ami-6df1e514"
+      MyAz: "us-west-1a"
+    us-west-2:
+      AMI: "ami-327f5352"
+      MyAz: "us-west-2a"
+    eu-west-1:
+      AMI: "ami-d7b9a2b1"
+      MyAz: "eu-west-1a"
+    sa-east-1:
+      AMI: "ami-87dab1eb"
+      MyAz: "sa-east-1a"
+    ap-southeast-1:
+      AMI: "ami-77af2014"
+      MyAz: "ap-southeast-1a"
+    ap-southeast-2:
+      AMI: "ami-10918173"
+      MyAz: "ap-southeast-2a"
+
+Parameters:
+  EnvironmetType:
+    Description: Environment type
+    Default: development
+    Type: String
+    AllowedValues:
+      - production
+      - development
+    ConstraintDescription: must specify development or production
+
+Conditions:
+  CreateProdResources: !Equals [ !Ref EnvironmetType, production ]
+
+Resources:
+  NewVolume:
+    Type: "AWS::EC2::Volume"
+    Condition: CreateProdResources
+    Properties:
+      Size: 100
+      AvailabilityZone:
+        !GetAtt EC2Instance.AvailabilityZone
+
+  MountPoint:
+    Type: "AWS::EC2::VolumeAttachment"
+    Condition: CreateProdResources
+    Properties:
+      InstanceId:
+        !Ref EC2Instance
+      VolumeId:
+        !Ref NewVolume
+      Device: /dev/sdh
+
+  EC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
+      InstanceType: t2.micro
+      AvailabilityZone: !FindInMap [RegionMap, !Ref "AWS::Region", MyAz]
+
+Outputs:
+  VolumeId:
+    Condition: CreateProdResources
+    Value:
+      !Ref NewVolume
